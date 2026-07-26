@@ -3,18 +3,31 @@
 
    Expects the host page to define, BEFORE this module loads:
      window.CIVIC_CONFIG = {
-       supabaseUrl:  "https://<project>.supabase.co",
-       supabaseKey:  "<anon public key>",   // read-only by RLS
+       supabaseUrl:     "https://<project>.supabase.co",
+       supabaseKey:     "<anon public key>",   // read-only by RLS
+       fallbackDataUrl: "assets/fallback-data.json",
      };
 
-   All text that originates in the database is escaped with esc()
-   before being placed in HTML, so a stray quote or angle bracket
-   in a name, note, or URL can never break or script the page.
+   Two ideas drive this file:
+
+   1. A ballot is ASSEMBLED, not stored. A voter's ballot is every contest
+      from every scope covering them — city, state house/senate, congressional,
+      statewide — collected and sorted into the order a real ballot reads.
+      See buildBallot().
+
+   2. Everything is a PAGE. Candidates, contests, and measures each get a
+      real URL (a hash route) so they can be shared, bookmarked, and reached
+      with the back button. See the router at the bottom.
+
+   All text originating in the database is escaped with esc() before being
+   placed in HTML, and URLs are validated with safeUrl().
    ============================================================ */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CONFIG = window.CIVIC_CONFIG || {};
+const FETCH_TIMEOUT_MS = 8000;
+
 const STATE_NAMES = {
   AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
   CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
@@ -29,13 +42,30 @@ const STATE_NAMES = {
   DC: "District of Columbia",
 };
 
-let PLACES = {};        // key "Maryland Heights, MO" -> jurisdiction view-model
-let CURRENT_KEY = null; // selected place key
-let MODAL_PEOPLE = [];  // people list backing the open results view (for dialog lookup)
+// How a ballot reads, top to bottom. Measures are pulled out to their own
+// closing section regardless of the scope that owns them.
+const BALLOT_SECTIONS = [
+  { label: "Federal", levels: ["us_senate", "us_house"] },
+  { label: "State", levels: ["statewide", "state_senate", "state_house"] },
+  { label: "County", levels: ["county"] },
+  { label: "Judicial", levels: ["judicial"] },
+  { label: "City", levels: ["municipal"] },
+];
+
+const LEVEL_LABELS = {
+  us_senate: "U.S. Senate", us_house: "U.S. Congress", statewide: "Statewide office",
+  state_senate: "State Senate", state_house: "State House", county: "County",
+  judicial: "Judicial", municipal: "City",
+};
+
+const LOOKUP_LINKS = `<a href="https://house.mo.gov/legislatorlookup.aspx" target="_blank" rel="noopener">Look up your Missouri legislators</a> · <a href="https://ziplook.house.gov/htbin/findrep_house" target="_blank" rel="noopener">Find your U.S. representative</a>`;
+
+let PLACES = {};      // "maryland-heights-mo" -> place view-model
+let STATEWIDE = {};   // "MO" -> [district, …] applying to every city in that state
 
 const $ = (id) => document.getElementById(id);
 
-/* ---------- Safety ---------- */
+/* ---------- Safety helpers ---------- */
 
 function esc(v) {
   return String(v ?? "")
@@ -43,17 +73,82 @@ function esc(v) {
     .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-// Only allow http(s) and mailto/tel links from data; anything else is dropped.
-function safeUrl(u, allowed = ["http:", "https:"]) {
+function safeUrl(u) {
   try {
     const parsed = new URL(String(u), window.location.href);
-    return allowed.includes(parsed.protocol) ? parsed.href : null;
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : null;
   } catch { return null; }
 }
 
+function slugify(s) {
+  return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function initials(name) {
+  const words = String(name).split(/\s+/).map((w) => w.replace(/[^\p{L}]/gu, "")).filter(Boolean);
+  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "•";
+}
+
+function formatDate(iso) {
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+    });
+  } catch { return iso; }
+}
+
+function formatShortDate(iso) {
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+    });
+  } catch { return iso; }
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
 /* ---------- Data loading ---------- */
 
-const FETCH_TIMEOUT_MS = 8000;
+const RACE_SELECT = `
+  races(
+    *,
+    candidates(*, resource_links(resources(*))),
+    resource_links(resources(*))
+  )`;
+
+async function fetchFromSupabase() {
+  const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+
+  const jurisdictions = supabase.from("jurisdictions").select(`
+    *,
+    officials!officials_jurisdiction_id_fkey(*),
+    elections!elections_jurisdiction_id_fkey(*, ${RACE_SELECT}),
+    jurisdiction_districts(
+      partial,
+      districts(
+        *,
+        officials!officials_district_id_fkey(*),
+        elections!elections_district_id_fkey(*, ${RACE_SELECT})
+      )
+    )
+  `);
+
+  // Statewide scopes are matched by state, not through jurisdiction_districts,
+  // so a newly added city picks them up with nothing to remember.
+  const statewide = supabase.from("districts").select(`
+    *,
+    officials!officials_district_id_fkey(*),
+    elections!elections_district_id_fkey(*, ${RACE_SELECT})
+  `).eq("level", "statewide");
+
+  const [jRes, sRes] = await withTimeout(Promise.all([jurisdictions, statewide]), FETCH_TIMEOUT_MS);
+
+  if (jRes.error) throw new Error(jRes.error.message);
+  if (sRes.error) throw new Error(sRes.error.message);
+  if (!jRes.data || !jRes.data.length) throw new Error("no rows returned");
+  return { jurisdictions: jRes.data, statewide: sRes.data || [] };
+}
 
 function withTimeout(promise, ms) {
   return Promise.race([
@@ -62,46 +157,12 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-async function fetchFromSupabase() {
-  const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
-  // officials/elections have two possible parents (city or district) since
-  // migration 001, so every embed names its foreign key explicitly.
-  const { data, error } = await withTimeout(
-    supabase.from("jurisdictions").select(`
-      *,
-      officials!officials_jurisdiction_id_fkey(*),
-      elections!elections_jurisdiction_id_fkey(
-        *,
-        races(
-          *,
-          candidates(*, resources:resources_candidate_id_fkey(*)),
-          resources:resources_race_id_fkey(*)
-        )
-      ),
-      jurisdiction_districts(
-        partial,
-        districts(
-          *,
-          officials!officials_district_id_fkey(*),
-          elections!elections_district_id_fkey(*)
-        )
-      )
-    `),
-    FETCH_TIMEOUT_MS,
-  );
-  if (error) throw new Error(error.message);
-  if (!data || !data.length) throw new Error("no rows returned");
-  return data;
-}
-
-// Snapshot shipped with the site, used when the database is unreachable so
-// visitors still get (slightly less fresh) information instead of an error.
 async function fetchFallback() {
   const res = await fetch(CONFIG.fallbackDataUrl || "assets/fallback-data.json");
   if (!res.ok) throw new Error(`fallback fetch failed (${res.status})`);
   const json = await res.json();
   if (!json.jurisdictions || !json.jurisdictions.length) throw new Error("fallback is empty");
-  return json.jurisdictions;
+  return { jurisdictions: json.jurisdictions, statewide: json.statewide || [] };
 }
 
 async function loadData() {
@@ -112,14 +173,14 @@ async function loadData() {
     return;
   }
 
-  let data;
+  let raw;
   let usedFallback = false;
   try {
-    data = await fetchFromSupabase();
+    raw = await fetchFromSupabase();
   } catch (dbErr) {
     console.warn("Database unavailable, trying offline snapshot:", dbErr.message);
     try {
-      data = await fetchFallback();
+      raw = await fetchFallback();
       usedFallback = true;
     } catch (fbErr) {
       console.warn("Fallback unavailable:", fbErr.message);
@@ -128,86 +189,7 @@ async function loadData() {
     }
   }
 
-  PLACES = {};
-  const today = new Date().toISOString().slice(0, 10);
-
-  const mapOfficial = (o) => ({
-    name: o.name, office: o.office, party: o.party, term: o.term, bio: o.bio,
-    email: o.email, phone: o.phone, website: o.website,
-    twitter: o.twitter, facebook: o.facebook, interviews: [],
-  });
-
-  for (const j of data) {
-    const key = `${j.name}, ${j.state}`;
-    const officials = (j.officials || [])
-      .slice().sort((a, b) => a.sort_order - b.sort_order)
-      .map(mapOfficial);
-
-    const districts = (j.jurisdiction_districts || [])
-      .map((link) => {
-        const d = link.districts;
-        if (!d) return null;
-        const nextDistrictElection = (d.elections || [])
-          .filter((e) => e.election_date >= today)
-          .sort((a, b) => a.election_date.localeCompare(b.election_date))[0];
-        return {
-          level: d.level,
-          name: d.name,
-          shortName: d.short_name,
-          infoUrl: d.info_url,
-          sortOrder: d.sort_order ?? 0,
-          partial: !!link.partial,
-          officials: (d.officials || [])
-            .slice().sort((a, b) => a.sort_order - b.sort_order)
-            .map(mapOfficial),
-          nextElectionDate: nextDistrictElection ? nextDistrictElection.election_date : null,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-
-    const nextElection = (j.elections || [])
-      .filter((e) => e.election_date >= today)
-      .sort((a, b) => a.election_date.localeCompare(b.election_date))[0];
-
-    let election = null;
-    if (nextElection) {
-      election = {
-        name: nextElection.name,
-        date: nextElection.election_date,
-        races: (nextElection.races || [])
-          .slice().sort((a, b) => a.sort_order - b.sort_order)
-          .map((r) => ({
-            title: r.title,
-            description: r.description,
-            debates: (r.resources || []).filter((x) => x.kind === "debate"),
-            info: (r.resources || []).filter((x) => x.kind === "info"),
-            candidates: (r.candidates || [])
-              .slice().sort((a, b) => a.sort_order - b.sort_order)
-              .map((c) => ({
-                name: c.name, office: null, party: c.party, term: null, bio: c.bio,
-                email: c.email, phone: c.phone, website: c.website,
-                twitter: c.twitter, facebook: c.facebook,
-                interviews: (c.resources || []).filter((x) => x.kind === "interview"),
-              })),
-          })),
-      };
-    }
-
-    PLACES[key] = {
-      key,
-      name: j.name,
-      state: j.state,
-      county: j.county,
-      website: j.city_website,
-      social: { twitter: j.twitter, facebook: j.facebook, instagram: j.instagram, youtube: j.youtube },
-      note: j.next_election_note,
-      election,
-      officials,
-      districts,
-    };
-  }
-
+  buildPlaces(raw);
   hideStatus();
   if (usedFallback) {
     const el = $("status");
@@ -215,7 +197,274 @@ async function loadData() {
     el.innerHTML = `<span>Live updates are temporarily unavailable — showing our most recently saved copy of this information.</span>`;
   }
   populateStates();
-  restoreFromHash();
+  route();
+}
+
+/* ---------- Shaping the raw rows into view-models ---------- */
+
+function mapPerson(p, extra = {}) {
+  return {
+    name: p.name,
+    office: p.office || null,
+    party: p.party || null,
+    term: p.term || null,
+    bio: p.bio || null,
+    email: p.email || null,
+    phone: p.phone || null,
+    website: p.website || null,
+    twitter: p.twitter || null,
+    facebook: p.facebook || null,
+    incumbent: !!p.incumbent,
+    resources: (p.resource_links || []).map((l) => l.resources).filter(Boolean),
+    ...extra,
+  };
+}
+
+function mapDistrict(d, partial) {
+  return {
+    level: d.level,
+    name: d.name,
+    shortName: d.short_name,
+    infoUrl: d.info_url,
+    sortOrder: d.sort_order ?? 0,
+    partial: !!partial,
+    officials: (d.officials || []).slice().sort(bySort).map((o) => mapPerson(o)),
+    elections: d.elections || [],
+  };
+}
+
+const bySort = (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0);
+
+function buildPlaces({ jurisdictions, statewide }) {
+  PLACES = {};
+  STATEWIDE = {};
+
+  for (const d of statewide) {
+    (STATEWIDE[d.state] = STATEWIDE[d.state] || []).push(mapDistrict(d, false));
+  }
+
+  for (const j of jurisdictions) {
+    const key = slugify(`${j.name}-${j.state}`);
+    const districts = (j.jurisdiction_districts || [])
+      .map((link) => (link.districts ? mapDistrict(link.districts, link.partial) : null))
+      .filter(Boolean)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const place = {
+      key,
+      name: j.name,
+      state: j.state,
+      county: j.county,
+      website: j.city_website,
+      social: { twitter: j.twitter, facebook: j.facebook, instagram: j.instagram, youtube: j.youtube },
+      note: j.next_election_note,
+      officials: (j.officials || []).slice().sort(bySort).map((o) => mapPerson(o)),
+      cityElections: j.elections || [],
+      districts,
+    };
+
+    place.ballot = buildBallot(place);
+    indexPeople(place);
+    PLACES[key] = place;
+  }
+}
+
+/* ---------- Ballot assembly ----------
+   Collect every contest a voter in this place will see on the next election
+   date, from every scope, and order it the way a ballot reads.
+------------------------------------------------------------------- */
+
+function scopesFor(place) {
+  // Every electoral scope covering this place: the city itself, its mapped
+  // districts, and any statewide scope for its state.
+  const scopes = [{
+    level: "municipal",
+    label: `City of ${place.name}`,
+    partial: false,
+    elections: place.cityElections,
+    sortOrder: 0,
+  }];
+  for (const d of place.districts) {
+    scopes.push({
+      level: d.level, label: d.name, shortName: d.shortName,
+      partial: d.partial, elections: d.elections, sortOrder: d.sortOrder,
+    });
+  }
+  for (const d of (STATEWIDE[place.state] || [])) {
+    scopes.push({
+      level: d.level, label: d.name, shortName: d.shortName,
+      partial: false, elections: d.elections, sortOrder: d.sortOrder,
+    });
+  }
+  return scopes;
+}
+
+function buildBallot(place) {
+  const scopes = scopesFor(place);
+  const cutoff = today();
+
+  // The nearest upcoming election date across all scopes is "the" next ballot.
+  const dates = [];
+  for (const s of scopes) {
+    for (const e of s.elections || []) {
+      if (e.election_date >= cutoff) dates.push(e.election_date);
+    }
+  }
+  if (!dates.length) return null;
+  const date = dates.sort()[0];
+
+  const name = (() => {
+    for (const s of scopes) {
+      for (const e of s.elections || []) if (e.election_date === date) return e.name;
+    }
+    return "Election";
+  })();
+
+  const contests = [];
+  for (const s of scopes) {
+    for (const e of (s.elections || [])) {
+      if (e.election_date !== date) continue;
+      for (const r of (e.races || []).slice().sort(bySort)) {
+        contests.push({
+          id: `${slugify(r.title)}-${slugify(s.shortName || s.label)}`,
+          title: r.title,
+          description: r.description || null,
+          kind: r.kind || "office",
+          officialText: r.official_text || null,
+          voteFor: r.vote_for ?? 1,
+          scopeLevel: s.level,
+          scopeLabel: s.label,
+          scopeShort: s.shortName || null,
+          partial: s.partial,
+          candidates: (r.candidates || []).slice().sort(bySort).map((c) => mapPerson(c)),
+          resources: (r.resource_links || []).map((l) => l.resources).filter(Boolean),
+        });
+      }
+    }
+  }
+
+  // Measures always close the ballot; offices group into ballot sections.
+  const measures = contests.filter((c) => c.kind === "measure");
+  const offices = contests.filter((c) => c.kind !== "measure");
+
+  const sections = [];
+  for (const def of BALLOT_SECTIONS) {
+    const inSection = offices.filter((c) => def.levels.includes(c.scopeLevel));
+    if (!inSection.length) continue;
+    inSection.sort((a, b) =>
+      def.levels.indexOf(a.scopeLevel) - def.levels.indexOf(b.scopeLevel));
+    // Contests for the same office across sibling districts (e.g. three state
+    // house districts covering one city) collapse into one address-varies group.
+    sections.push({ label: def.label, groups: groupByOffice(inSection) });
+  }
+  if (measures.length) {
+    sections.push({ label: "Ballot measures", groups: measures.map((m) => ({ single: m })) });
+  }
+
+  return {
+    date,
+    name,
+    sections,
+    hasContests: contests.length > 0,
+    otherDates: [...new Set(dates)].filter((d) => d !== date).sort(),
+  };
+}
+
+function groupByOffice(contests) {
+  // Two contests belong together when they are the same office at the same
+  // level in different districts — the voter gets exactly one of them.
+  const byOffice = new Map();
+  for (const c of contests) {
+    const officeKey = `${c.scopeLevel}::${baseOfficeName(c.title)}`;
+    if (!byOffice.has(officeKey)) byOffice.set(officeKey, []);
+    byOffice.get(officeKey).push(c);
+  }
+  const groups = [];
+  for (const [, list] of byOffice) {
+    if (list.length === 1) groups.push({ single: list[0] });
+    else groups.push({ office: baseOfficeName(list[0].title), variants: list });
+  }
+  return groups;
+}
+
+function baseOfficeName(title) {
+  // "State Representative — District 70" -> "State Representative"
+  return String(title).split(/\s+[—–-]\s+/)[0].trim();
+}
+
+/* ---------- People / contest index for routing ---------- */
+
+function indexPeople(place) {
+  place.people = new Map();
+  place.contests = new Map();
+
+  const byName = new Map();
+
+  const add = (person, context) => {
+    // An incumbent seeking re-election appears twice in the data — once as a
+    // current officeholder, once as a candidate. They are one person and get
+    // one page: merge, preferring the candidate framing and any filled-in field.
+    const existing = byName.get(person.name);
+    if (existing) {
+      const merged = place.people.get(existing);
+      for (const [k, v] of Object.entries({ ...person, ...context })) {
+        if (merged[k] == null || merged[k] === "" ||
+            (Array.isArray(merged[k]) && !merged[k].length)) merged[k] = v;
+      }
+      if (context.role === "candidate") {
+        Object.assign(merged, {
+          role: "candidate",
+          contestId: context.contestId,
+          contestTitle: context.contestTitle,
+          electionDate: context.electionDate,
+          incumbent: merged.incumbent || person.incumbent,
+        });
+      }
+      person.slug = existing;
+      return;
+    }
+
+    const base = slugify(person.name);
+    let s = base;
+    let n = 2;
+    while (place.people.has(s)) s = `${base}-${n++}`;
+    place.people.set(s, { ...person, ...context, slug: s });
+    byName.set(person.name, s);
+    // Stamp the slug onto the source object so cards can link without a lookup.
+    person.slug = s;
+  };
+
+  for (const o of place.officials) {
+    add(o, { role: "official", contextLabel: `${place.name} city government` });
+  }
+  for (const d of place.districts) {
+    for (const o of d.officials) {
+      add(o, { role: "official", contextLabel: d.name, partial: d.partial });
+    }
+  }
+  for (const d of (STATEWIDE[place.state] || [])) {
+    for (const o of d.officials) add(o, { role: "official", contextLabel: d.name });
+  }
+
+  if (place.ballot) {
+    for (const section of place.ballot.sections) {
+      for (const group of section.groups) {
+        const list = group.single ? [group.single] : group.variants;
+        for (const c of list) {
+          place.contests.set(c.id, c);
+          for (const cand of c.candidates) {
+            add(cand, {
+              role: "candidate",
+              contestId: c.id,
+              contestTitle: c.title,
+              contextLabel: c.title,
+              electionDate: place.ballot.date,
+            });
+          }
+        }
+      }
+    }
+  }
 }
 
 /* ---------- Status / error UI ---------- */
@@ -237,8 +486,7 @@ function showError(msg) {
 /* ---------- Location picker ---------- */
 
 function statesInData() {
-  const set = new Set(Object.values(PLACES).map((p) => p.state));
-  return [...set].sort();
+  return [...new Set(Object.values(PLACES).map((p) => p.state))].sort();
 }
 
 function populateStates() {
@@ -248,10 +496,8 @@ function populateStates() {
   sel.disabled = false;
 
   if (states.length === 1) {
-    // Only one state available: pre-select it, no extra click needed.
-    const s = states[0];
-    sel.append(new Option(STATE_NAMES[s] || s, s, true, true));
-    populateCities(s);
+    sel.append(new Option(STATE_NAMES[states[0]] || states[0], states[0], true, true));
+    populateCities(states[0]);
   } else {
     sel.append(new Option("Select a state…", ""));
     for (const s of states) sel.append(new Option(STATE_NAMES[s] || s, s));
@@ -261,7 +507,7 @@ function populateStates() {
   }
 }
 
-function populateCities(state, preselectKey = null) {
+function populateCities(state, selectedKey = null) {
   const sel = $("city");
   sel.innerHTML = "";
   sel.disabled = false;
@@ -269,82 +515,101 @@ function populateCities(state, preselectKey = null) {
   Object.values(PLACES)
     .filter((p) => p.state === state)
     .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach((p) => sel.append(new Option(p.name, p.key, false, p.key === preselectKey)));
-  if (preselectKey && PLACES[preselectKey]) render(preselectKey);
+    .forEach((p) => sel.append(new Option(p.name, p.key, false, p.key === selectedKey)));
 }
 
 function onStateChange() {
   const s = $("state").value;
-  clearResults();
   if (!s) {
     $("city").disabled = true;
     $("city").innerHTML = "";
     $("city").append(new Option("Select a state first", ""));
+    navigate("/", { replace: true });
     return;
   }
   populateCities(s);
+  navigate("/", { replace: true });
 }
 
 function onCityChange() {
   const key = $("city").value;
-  if (!key) { clearResults(); return; }
-  render(key);
-  const p = PLACES[key];
-  history.replaceState(null, "", `#${slug(p)}`);
+  navigate(key ? `/city/${key}` : "/");
 }
 
-function slug(p) {
-  return `${p.name}-${p.state}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+/* ---------- Shared render pieces ---------- */
+
+function contactLinks(c) {
+  const parts = [];
+  const site = safeUrl(c.website);
+  if (site) parts.push(`<a class="link" href="${esc(site)}" target="_blank" rel="noopener">Website</a>`);
+  if (c.email) parts.push(`<a class="link" href="mailto:${esc(c.email)}">Email</a>`);
+  if (c.phone) parts.push(`<a class="link" href="tel:${esc(String(c.phone).replace(/[^0-9+]/g, ""))}">${esc(c.phone)}</a>`);
+  if (c.twitter) parts.push(`<a class="link" href="https://twitter.com/${encodeURIComponent(String(c.twitter).replace("@", ""))}" target="_blank" rel="noopener">X / Twitter</a>`);
+  if (c.facebook) parts.push(`<a class="link" href="https://facebook.com/${encodeURIComponent(c.facebook)}" target="_blank" rel="noopener">Facebook</a>`);
+  return parts.join("");
 }
 
-function restoreFromHash() {
-  const h = window.location.hash.replace(/^#/, "");
-  if (!h) return;
-  const match = Object.values(PLACES).find((p) => slug(p) === h);
-  if (!match) return;
-  $("state").value = match.state;
-  populateCities(match.state, match.key);
+const RESOURCE_ICONS = { debate: "▶", interview: "🎤", info: "📄" };
+
+function resourceCard(r, alsoCovers = []) {
+  const url = safeUrl(r.url);
+  if (!url) return "";
+  const meta = [r.source, r.published_on ? formatShortDate(r.published_on) : null, r.note]
+    .filter(Boolean).map(esc).join(" · ");
+  const shared = alsoCovers.length
+    ? `<span class="res-shared">Also covers: ${alsoCovers.map(esc).join(", ")}</span>` : "";
+  return `
+    <a class="res" href="${esc(url)}" target="_blank" rel="noopener">
+      <span class="res-ico" aria-hidden="true">${RESOURCE_ICONS[r.kind] || "🔗"}</span>
+      <span class="res-body">
+        <span class="res-title">${esc(r.title)}</span>
+        ${meta ? `<span class="res-meta">${meta}</span>` : ""}
+        ${shared}
+      </span>
+    </a>`;
 }
 
-/* ---------- Rendering ---------- */
-
-function clearResults() {
-  const r = $("results");
-  r.classList.remove("active");
-  r.innerHTML = "";
-  CURRENT_KEY = null;
-  MODAL_PEOPLE = [];
+function resourceSection(label, resources, { contest = null, excludeName = null } = {}) {
+  if (!resources.length) return "";
+  // A resource attached to a whole contest covers every candidate in it; on a
+  // person's page we list the others so it's clear the link isn't one-sided.
+  const alsoCovers = contest
+    ? contest.candidates.map((c) => c.name).filter((n) => n !== excludeName)
+    : [];
+  return `<div class="page-sec"><h3>${esc(label)}</h3>
+    ${resources.map((r) => resourceCard(r, alsoCovers)).join("")}</div>`;
 }
 
-function render(key) {
-  const p = PLACES[key];
-  if (!p) return;
-  CURRENT_KEY = key;
-  MODAL_PEOPLE = [];
-  const r = $("results");
+function personCard(person, href, { featured = false, note = null } = {}) {
+  return `
+    <a class="person-card${featured ? " featured" : ""}" href="${esc(href)}">
+      <span class="avatar" aria-hidden="true">${esc(initials(person.name))}</span>
+      <span class="person-info">
+        <span class="person-name">${esc(person.name)}${
+          person.incumbent ? '<span class="chip-inc">Incumbent</span>' : ""}</span>
+        <span class="person-office">${esc(note || person.office || person.party || "")}</span>
+      </span>
+      <span class="person-more" aria-hidden="true">Details ›</span>
+    </a>`;
+}
+
+/* ---------- View: the city page (ballot + officials) ---------- */
+
+function renderCity(place) {
+  setChrome({ picker: true, selected: place });
 
   let html = `
     <div class="jurisdiction-header">
-      <h2>${esc(p.name)}, ${esc(STATE_NAMES[p.state] || p.state)}</h2>
-      ${p.county ? `<span class="county">${esc(p.county)}</span>` : ""}
+      <h2>${esc(place.name)}, ${esc(STATE_NAMES[place.state] || place.state)}</h2>
+      ${place.county ? `<span class="county">${esc(place.county)}</span>` : ""}
     </div>
-    ${cityLinksRow(p)}`;
+    ${cityLinksRow(place)}`;
 
-  if (p.election) {
-    html += renderElection(p);
-  } else {
-    html += `
-      <div class="notice"><strong>No city election is currently scheduled.</strong>
-      ${p.note ? ` ${esc(p.note)}` : ""}</div>
-      ${renderOfficials(p)}`;
-  }
+  html += renderBallot(place);
+  html += renderOfficialsSection(place);
+  html += renderDistrictOfficials(place);
 
-  html += renderDistricts(p);
-
-  r.innerHTML = html;
-  r.classList.add("active");
-  attachPersonHandlers(r);
-  r.scrollIntoView({ behavior: "smooth", block: "start" });
+  paint(html);
 }
 
 function cityLinksRow(p) {
@@ -359,189 +624,366 @@ function cityLinksRow(p) {
   return parts.length ? `<div class="city-links">${parts.join("")}</div>` : "";
 }
 
-function initials(name) {
-  const words = String(name).split(/\s+/).map((w) => w.replace(/[^\p{L}]/gu, "")).filter(Boolean);
-  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "•";
+function renderBallot(place) {
+  const b = place.ballot;
+  if (!b) {
+    return `<div class="notice"><strong>No election is currently scheduled.</strong>
+      ${place.note ? ` ${esc(place.note)}` : ""}</div>`;
+  }
+
+  let html = `
+    <div class="ballot-head">
+      <div class="kicker">What's on your ballot</div>
+      <h3>${esc(b.name)}</h3>
+      <div class="when">${esc(formatDate(b.date))}</div>
+    </div>
+    <div class="accuracy-note">
+      <strong>This is what we expect on a ${esc(place.name)} ballot.</strong>
+      Some contests depend on your exact street address — ${LOOKUP_LINKS}.
+      Always confirm with your local election authority before voting.
+    </div>`;
+
+  if (!b.hasContests) {
+    return html + `<div class="notice"><strong>Contests for this election aren't listed yet.</strong>
+      We add each contest and its candidates once they are officially certified.
+      In the meantime, your current representatives are listed below.</div>`;
+  }
+
+  for (const section of b.sections) {
+    html += `<div class="ballot-section"><span class="ballot-section-label">${esc(section.label)}</span></div>`;
+    for (const group of section.groups) {
+      html += group.single ? renderContest(place, group.single) : renderVariantGroup(place, group);
+    }
+  }
+  return html;
 }
 
-function personCard(person, index, { featured = false } = {}) {
-  return `
-    <button type="button" class="person-card${featured ? " featured" : ""}" data-person="${index}">
-      <span class="avatar" aria-hidden="true">${esc(initials(person.name))}</span>
-      <span class="person-info">
-        <span class="person-name">${esc(person.name)}</span>
-        <span class="person-office">${esc(person.office || person.party || "")}</span>
-      </span>
-      <span class="person-more" aria-hidden="true">Details ›</span>
-    </button>`;
-}
+function renderContest(place, c) {
+  if (c.kind === "measure") return renderMeasureCard(place, c);
 
-function renderOfficials(p) {
-  const featured = [];
-  const rest = [];
-  p.officials.forEach((o) => {
-    const idx = MODAL_PEOPLE.push(o) - 1;
-    (String(o.office || "").toLowerCase().startsWith("mayor") ? featured : rest).push([o, idx]);
-  });
+  const href = `#/city/${place.key}/contest/${c.id}`;
+  const sub = [
+    c.voteFor > 1 ? `Vote for up to ${c.voteFor}` : "Vote for one",
+    c.scopeLabel,
+  ].filter(Boolean).join(" · ");
+
   return `
-    <div class="section-title">Your city officials</div>
-    <div class="people-grid">
-      ${featured.map(([o, i]) => personCard(o, i, { featured: true })).join("")}
-      ${rest.map(([o, i]) => personCard(o, i)).join("")}
+    <div class="contest">
+      <div class="contest-head">
+        <h4>${esc(c.title)}</h4>
+        ${c.resources.length
+          ? `<div class="contest-actions"><a class="chip-btn" href="${esc(href)}">Debates &amp; info</a></div>` : ""}
+      </div>
+      <div class="contest-sub">${esc(sub)}</div>
+      ${c.description ? `<p class="race-description">${esc(c.description)}</p>` : ""}
+      ${c.partial ? `<div class="varies"><strong>Depends on your address.</strong>
+        This district covers only part of ${esc(place.name)}.</div>` : ""}
+      ${c.candidates.length
+        ? `<div class="people-grid">${c.candidates.map((cand) =>
+            personCard(cand, personHref(place, cand), { note: cand.party })).join("")}</div>`
+        : `<p class="nothing">Candidates for this contest aren't certified yet.</p>`}
     </div>`;
 }
 
-const LEVEL_LABELS = [
-  ["us_house", "U.S. Congress"],
-  ["state_senate", "Missouri Senate"],
-  ["state_house", "Missouri House"],
-];
+function renderVariantGroup(place, group) {
+  let html = `
+    <div class="contest">
+      <div class="contest-head"><h4>${esc(group.office)}</h4></div>
+      <div class="contest-sub">Vote for one</div>
+      <div class="varies"><strong>${esc(place.name)} spans ${group.variants.length} districts for this office.</strong>
+        Your ballot will show only one of them — ${LOOKUP_LINKS}.</div>`;
+  for (const v of group.variants) {
+    html += `
+      <div class="district-option">
+        <div class="doh">If you're in ${esc(v.scopeShort || v.scopeLabel)}</div>
+        <div class="people-grid">
+          ${v.candidates.length
+            ? v.candidates.map((cand) => personCard(cand, personHref(place, cand), { note: cand.party })).join("")
+            : `<p class="nothing">Candidates not certified yet.</p>`}
+        </div>
+      </div>`;
+  }
+  return html + `</div>`;
+}
 
-function renderDistricts(p) {
-  if (!p.districts || !p.districts.length) return "";
+function renderMeasureCard(place, m) {
+  return `
+    <div class="measure">
+      <h4>${esc(m.title)}</h4>
+      <div class="contest-sub">${esc(m.scopeLabel)} · Vote yes or no</div>
+      ${m.officialText ? `<div class="official-text">${esc(m.officialText)}</div>` : ""}
+      <div class="yn"><span>YES</span><span>NO</span></div>
+      <a class="chip-btn" href="#/city/${esc(place.key)}/measure/${esc(m.id)}">Read full text &amp; information →</a>
+    </div>`;
+}
 
-  const anyPartial = p.districts.some((d) => d.partial);
-  const nextDate = p.districts.map((d) => d.nextElectionDate).filter(Boolean).sort()[0];
+function personHref(place, person) {
+  return `#/city/${place.key}/person/${person.slug || slugify(person.name)}`;
+}
+
+function renderOfficialsSection(place) {
+  if (!place.officials.length) return "";
+  const featured = place.officials.filter((o) => String(o.office || "").toLowerCase().startsWith("mayor"));
+  const rest = place.officials.filter((o) => !featured.includes(o));
+  return `
+    <div class="section-title">Your city officials</div>
+    <div class="people-grid">
+      ${featured.map((o) => personCard(o, personHref(place, o), { featured: true })).join("")}
+      ${rest.map((o) => personCard(o, personHref(place, o))).join("")}
+    </div>`;
+}
+
+function renderDistrictOfficials(place) {
+  const all = [...place.districts, ...(STATEWIDE[place.state] || [])];
+  if (!all.length) return "";
 
   let html = `<div class="section-title">Your state &amp; federal representatives</div>`;
-  if (nextDate) {
-    html += `<p class="district-note">These seats appear on the ${esc(formatDate(nextDate))} ballot.</p>`;
-  }
+  let daggerShown = false;
 
-  for (const [level, label] of LEVEL_LABELS) {
-    const ds = p.districts.filter((d) => d.level === level);
+  for (const [level, label] of Object.entries(LEVEL_LABELS)) {
+    const ds = all.filter((d) => d.level === level);
     if (!ds.length) continue;
     let cards = "";
     for (const d of ds) {
       for (const o of d.officials) {
-        const idx = MODAL_PEOPLE.push(o) - 1;
-        const shown = { ...o, office: (o.office || d.name) + (d.partial ? " †" : "") };
-        cards += personCard(shown, idx);
+        if (d.partial) daggerShown = true;
+        cards += personCard(o, personHref(place, o), {
+          note: (o.office || d.name) + (d.partial ? " †" : ""),
+        });
       }
     }
-    if (!cards) continue;
-    html += `
-      <div class="district-group">
-        <h4 class="district-level">${esc(label)}</h4>
-        <div class="people-grid">${cards}</div>
-      </div>`;
+    if (cards) {
+      html += `<div class="district-group"><h4 class="district-level">${esc(label)}</h4>
+        <div class="people-grid">${cards}</div></div>`;
+    }
   }
-
-  if (anyPartial) {
+  if (daggerShown) {
     html += `<p class="district-note">† This district covers only part of the city, so your
-      representative depends on your exact address.
-      <a href="https://house.mo.gov/legislatorlookup.aspx" target="_blank" rel="noopener">Look up your Missouri legislators</a> ·
-      <a href="https://ziplook.house.gov/htbin/findrep_house" target="_blank" rel="noopener">Find your U.S. representative</a></p>`;
+      representative depends on your exact address. ${LOOKUP_LINKS}</p>`;
   }
   return html;
 }
 
-function renderElection(p) {
-  const e = p.election;
-  let html = `
-    <div class="election-banner">
-      <h3>${esc(e.name)}</h3>
-      <div class="date">Election day: ${esc(formatDate(e.date))}</div>
+/* ---------- View: person page ---------- */
+
+function renderPerson(place, person) {
+  setChrome({ picker: false, selected: place });
+
+  const isCandidate = person.role === "candidate";
+  const metaBits = [person.party, person.term,
+    isCandidate && place.ballot ? `On the ballot ${formatShortDate(place.ballot.date)}` : null]
+    .filter(Boolean);
+
+  const contest = person.contestId ? place.contests.get(person.contestId) : null;
+  // Contest-level resources (debates covering the whole race) plus this
+  // person's own (interviews). Shared resources appear in both places.
+  const contestResources = contest ? contest.resources : [];
+  const ownResources = person.resources || [];
+
+  const debates = [...contestResources.filter((r) => r.kind === "debate"),
+                   ...ownResources.filter((r) => r.kind === "debate")];
+  const interviews = ownResources.filter((r) => r.kind === "interview");
+  const info = [...contestResources.filter((r) => r.kind === "info"),
+                ...ownResources.filter((r) => r.kind === "info")];
+
+  const alsoOnBallot = place.ballot
+    ? [...place.contests.values()].filter((c) => c.id !== person.contestId).slice(0, 4)
+    : [];
+
+  const html = `
+    <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <div class="person-hero">
+      <div class="hero-av" aria-hidden="true">${esc(initials(person.name))}</div>
+      <div>
+        <h1>${esc(person.name)}</h1>
+        <div class="seeking">${isCandidate
+          ? `Candidate for <strong>${esc(person.contestTitle || "")}</strong>`
+          : esc(person.office || person.contextLabel || "")}</div>
+        ${metaBits.length ? `<div class="hero-meta">${metaBits.map(esc).join(" · ")}</div>` : ""}
+      </div>
     </div>
-    <div class="section-title">What's on the ballot</div>`;
 
-  e.races.forEach((race, ri) => {
-    const hasResources = race.debates.length || race.info.length;
-    html += `
-      <div class="race">
-        <div class="race-header">
-          <h4>${esc(race.title)}</h4>
-          ${hasResources ? `<button type="button" class="race-resources-btn" data-race="${ri}">Debates &amp; info</button>` : ""}
-        </div>
-        ${race.description ? `<p class="race-description">${esc(race.description)}</p>` : ""}
-        <div class="people-grid">
-          ${race.candidates.map((c) => {
-            const idx = MODAL_PEOPLE.push(c) - 1;
-            return personCard(c, idx);
-          }).join("")}
-        </div>
-      </div>`;
-  });
-  return html;
+    ${person.bio ? `<div class="page-sec"><h3>About</h3><p>${esc(person.bio)}</p></div>` : ""}
+
+    <div class="page-sec"><h3>Contact &amp; official links</h3>
+      <div class="links">${contactLinks(person) || '<span class="nothing">No links available yet.</span>'}</div>
+    </div>
+
+    ${resourceSection("Debates & candidate forums", debates, { contest, excludeName: person.name })}
+    ${resourceSection("Interviews & coverage", interviews)}
+    ${resourceSection("More information", info, { contest, excludeName: person.name })}
+
+    ${alsoOnBallot.length ? `<div class="page-sec"><h3>Also on your ballot</h3>
+      <div class="also">${alsoOnBallot.map((c) => `
+        <a href="#/city/${esc(place.key)}/${c.kind === "measure" ? "measure" : "contest"}/${esc(c.id)}">
+          ${esc(c.title)}<small>${c.kind === "measure" ? "Ballot measure"
+            : `${c.candidates.length} candidate${c.candidates.length === 1 ? "" : "s"}`}</small></a>`).join("")}
+      </div></div>` : ""}
+
+    <p class="neutrality">Civic Gateway does not endorse candidates. Links are provided so you can
+    hear candidates in their own words and from independent coverage; inclusion is not an
+    endorsement, and we aim to list the same categories of information for every candidate in a race.</p>`;
+
+  paint(html);
+  document.title = `${person.name} — Civic Gateway`;
 }
 
-function formatDate(iso) {
-  try {
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    });
-  } catch { return iso; }
+/* ---------- View: contest page ---------- */
+
+function renderContestPage(place, contest) {
+  setChrome({ picker: false, selected: place });
+
+  const html = `
+    <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <div class="page-head">
+      <h1>${esc(contest.title)}</h1>
+      <div class="hero-meta">${esc(contest.scopeLabel)} ·
+        ${contest.voteFor > 1 ? `Vote for up to ${contest.voteFor}` : "Vote for one"}${
+        place.ballot ? ` · ${esc(formatShortDate(place.ballot.date))}` : ""}</div>
+    </div>
+    ${contest.description ? `<div class="page-sec"><p>${esc(contest.description)}</p></div>` : ""}
+    ${contest.partial ? `<div class="varies"><strong>Depends on your address.</strong>
+      This district covers only part of ${esc(place.name)}. ${LOOKUP_LINKS}</div>` : ""}
+
+    <div class="page-sec"><h3>Candidates</h3>
+      ${contest.candidates.length
+        ? `<div class="people-grid">${contest.candidates.map((c) =>
+            personCard(c, personHref(place, c), { note: c.party })).join("")}</div>`
+        : `<p class="nothing">Candidates aren't certified yet.</p>`}
+    </div>
+
+    ${resourceSection("Debates & candidate forums", contest.resources.filter((r) => r.kind === "debate"))}
+    ${resourceSection("Voter information", contest.resources.filter((r) => r.kind === "info"))}`;
+
+  paint(html);
+  document.title = `${contest.title} — Civic Gateway`;
 }
 
-/* ---------- Person / race dialogs ---------- */
+/* ---------- View: measure page ---------- */
 
-function attachPersonHandlers(root) {
-  root.querySelectorAll(".person-card").forEach((btn) => {
-    btn.addEventListener("click", () => openPerson(Number(btn.dataset.person)));
-  });
-  root.querySelectorAll(".race-resources-btn").forEach((btn) => {
-    btn.addEventListener("click", () => openRace(Number(btn.dataset.race)));
-  });
+function renderMeasurePage(place, measure) {
+  setChrome({ picker: false, selected: place });
+
+  const html = `
+    <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <div class="page-head">
+      <h1>${esc(measure.title)}</h1>
+      <div class="hero-meta">${esc(measure.scopeLabel)} · Ballot measure${
+        place.ballot ? ` · ${esc(formatShortDate(place.ballot.date))}` : ""}</div>
+    </div>
+    ${measure.officialText
+      ? `<div class="page-sec"><h3>Official ballot language</h3>
+         <div class="official-text">${esc(measure.officialText)}</div></div>` : ""}
+    ${measure.description ? `<div class="page-sec"><h3>Summary</h3><p>${esc(measure.description)}</p></div>` : ""}
+    <div class="page-sec"><h3>How the vote works</h3>
+      <p>A <strong>YES</strong> vote supports the measure as written above.
+      A <strong>NO</strong> vote opposes it, leaving current law unchanged.</p></div>
+    ${resourceSection("Arguments and analysis", measure.resources)}
+    <p class="neutrality">Civic Gateway takes no position on ballot measures. Where we link
+    supporting and opposing material, we aim to link both.</p>`;
+
+  paint(html);
+  document.title = `${measure.title} — Civic Gateway`;
 }
 
-function contactLinks(c) {
-  const parts = [];
-  const site = safeUrl(c.website);
-  if (site) parts.push(`<a class="link" href="${esc(site)}" target="_blank" rel="noopener">Website</a>`);
-  if (c.email) parts.push(`<a class="link" href="mailto:${esc(c.email)}">Email</a>`);
-  if (c.phone) parts.push(`<a class="link" href="tel:${esc(String(c.phone).replace(/[^0-9+]/g, ""))}">${esc(c.phone)}</a>`);
-  if (c.twitter) parts.push(`<a class="link" href="https://twitter.com/${encodeURIComponent(String(c.twitter).replace("@", ""))}" target="_blank" rel="noopener">X / Twitter</a>`);
-  if (c.facebook) parts.push(`<a class="link" href="https://facebook.com/${encodeURIComponent(c.facebook)}" target="_blank" rel="noopener">Facebook</a>`);
-  return parts.join("");
+/* ---------- Chrome + painting ---------- */
+
+function setChrome({ picker, selected }) {
+  $("intro").hidden = !picker;
+  $("pickerCard").hidden = !picker;
+  if (selected) {
+    if ($("state").value !== selected.state) {
+      $("state").value = selected.state;
+      populateCities(selected.state, selected.key);
+    } else if ($("city").value !== selected.key) {
+      populateCities(selected.state, selected.key);
+    }
+  }
 }
 
-function openPerson(index) {
-  const c = MODAL_PEOPLE[index];
-  if (!c) return;
-  const links = contactLinks(c);
-  const interviews = (c.interviews || [])
-    .map((v) => {
-      const u = safeUrl(v.url);
-      return u ? `<a class="link" href="${esc(u)}" target="_blank" rel="noopener">${esc(v.title)}</a>` : "";
-    }).join("");
-
-  $("dialogBody").innerHTML = `
-    <h3>${esc(c.name)}</h3>
-    <div class="role">${esc([c.office, c.party, c.term].filter(Boolean).join(" · "))}</div>
-    ${c.bio ? `<p>${esc(c.bio)}</p>` : ""}
-    <h4>Contact &amp; links</h4>
-    <div class="links">${links || '<span class="none">No links available</span>'}</div>
-    ${interviews ? `<h4>Interviews &amp; coverage</h4><div class="links">${interviews}</div>` : ""}`;
-  $("personDialog").showModal();
+function paint(html) {
+  const r = $("results");
+  r.innerHTML = html;
+  r.classList.add("active");
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
 
-function openRace(raceIndex) {
-  const p = PLACES[CURRENT_KEY];
-  const race = p?.election?.races[raceIndex];
-  if (!race) return;
-  const sec = (label, arr) => {
-    const items = arr.map((x) => {
-      const u = safeUrl(x.url);
-      return u ? `<a class="link" href="${esc(u)}" target="_blank" rel="noopener">${esc(x.title)}</a>` : "";
-    }).join("");
-    return items ? `<h4>${label}</h4><div class="links">${items}</div>` : "";
-  };
-  $("dialogBody").innerHTML = `
-    <h3>${esc(race.title)}</h3>
-    <div class="role">Ballot item — debates &amp; information</div>
-    ${sec("Debate &amp; forum videos", race.debates)}
-    ${sec("Voter information", race.info)}`;
-  $("personDialog").showModal();
+function paintNotFound(message) {
+  setChrome({ picker: true, selected: null });
+  paint(`<div class="notice"><strong>${esc(message)}</strong>
+    <br><a href="#/">Start over</a></div>`);
+}
+
+/* ---------- Router ----------
+   Routes (everything after the "#" — the server only ever serves index.html):
+     #/                                  the picker
+     #/city/<city>                       ballot + officials
+     #/city/<city>/person/<slug>         candidate or officeholder page
+     #/city/<city>/contest/<id>          one contest, with its debates
+     #/city/<city>/measure/<id>          one ballot measure
+------------------------------------------------------------------- */
+
+function navigate(path, { replace = false } = {}) {
+  const url = `#${path}`;
+  if (replace) history.replaceState(null, "", url);
+  else history.pushState(null, "", url);
+  route();
+}
+
+function parseHash() {
+  const raw = window.location.hash.replace(/^#/, "");
+  if (!raw || raw === "/") return { name: "home" };
+
+  // Legacy links from the first version looked like "#maryland-heights-mo".
+  if (!raw.startsWith("/")) return { name: "city", city: raw };
+
+  const parts = raw.split("/").filter(Boolean);
+  if (parts[0] !== "city" || !parts[1]) return { name: "home" };
+  const city = parts[1];
+  if (parts.length === 2) return { name: "city", city };
+  const [, , kind, id] = parts;
+  if (["person", "contest", "measure"].includes(kind) && id) {
+    return { name: kind, city, id: decodeURIComponent(id) };
+  }
+  return { name: "city", city };
+}
+
+function route() {
+  document.title = "Civic Gateway — Find Your Elections & Elected Officials";
+  const r = parseHash();
+
+  if (r.name === "home") {
+    setChrome({ picker: true, selected: null });
+    $("results").classList.remove("active");
+    $("results").innerHTML = "";
+    if ($("city")) $("city").value = "";
+    return;
+  }
+
+  const place = PLACES[r.city];
+  if (!place) return paintNotFound("We don't have information for that location yet.");
+
+  if (r.name === "city") return renderCity(place);
+  if (r.name === "person") {
+    const person = place.people.get(r.id);
+    return person ? renderPerson(place, person) : paintNotFound("We couldn't find that person.");
+  }
+  if (r.name === "contest") {
+    const c = place.contests.get(r.id);
+    return c ? renderContestPage(place, c) : paintNotFound("We couldn't find that contest.");
+  }
+  if (r.name === "measure") {
+    const m = place.contests.get(r.id);
+    return m ? renderMeasurePage(place, m) : paintNotFound("We couldn't find that ballot measure.");
+  }
+  return renderCity(place);
 }
 
 /* ---------- Boot ---------- */
 
 $("state").addEventListener("change", onStateChange);
 $("city").addEventListener("change", onCityChange);
-$("dialogClose").addEventListener("click", () => $("personDialog").close());
-$("personDialog").addEventListener("click", (e) => {
-  // Click on the backdrop (outside the panel) closes the dialog.
-  if (e.target === e.currentTarget) e.currentTarget.close();
-});
+window.addEventListener("popstate", route);
+window.addEventListener("hashchange", route);
 
 loadData();

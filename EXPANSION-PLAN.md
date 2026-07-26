@@ -89,11 +89,11 @@ skipping the primary this cycle and starting with the November general.
 
 Priority neighbors (all border current coverage):
 
-| City | Officials directory | Notes |
+| City | Officials directory | Status |
 |---|---|---|
-| Town and Country | https://www.town-and-country.org/ → Government → Board of Aldermen | Mayor + 8 aldermen (2/ward); in MO-2, Senate 24?, House 89 (Hruza) — verify |
-| Overland | https://overlandmo.org/226/City-Council | Mayor Marty A. Little (verified, term to 2030); 8 council (2/ward); in MO-1, Senate 14, House 71 (part) — verify wards/contacts from the directory |
-| St. Ann | https://www.stannmo.org/ → Government | In MO-1, Senate 14 — verify House district |
+| Town and Country | https://www.town-and-country.org/ → Government → Board of Aldermen | ✅ Added (migrations/003). TODO: its state **senate** district (moved out of 24 in redistricting; unverified) and whether more House districts cover parts of it |
+| Overland | https://overlandmo.org/226/City-Council | ✅ Added (migrations/003): MO-1, Senate 14, House 71 (part). TODO: check for additional House districts |
+| St. Ann | https://www.stannmo.org/ → Government | Roster still needed (spread across pages). In MO-1, Senate 14 — verify House district |
 
 Per-city process (same as the original three):
 1. Pull mayor + council roster **from the city's official directory page**
@@ -114,3 +114,37 @@ Per-city process (same as the original three):
 3. **Post-primary (mid-August):** add November races + candidates per district.
 4. **November general:** the ballot view becomes the main event for every
    covered city.
+
+## 5. Entering the November 2026 ballot (after the Aug 4 primary)
+
+The ballot renderer is live but shows "contests aren't listed yet" until races
+exist, because nominees aren't certified until after the August 4 primary.
+Once the certified list is published by the
+[Secretary of State](https://www.sos.mo.gov/elections/candidates):
+
+1. **Add a `races` row** per contest, attached to that scope's November 3
+   `elections` row. Set `kind` (`office` or `measure`), `vote_for`, and for
+   measures the verbatim `official_text`.
+2. **Add `candidates` rows**, setting `incumbent` where it applies.
+3. **Add a statewide scope** if not already present — a `districts` row with
+   `level = 'statewide'` (e.g. "State of Missouri") holding the State Auditor
+   race and statewide amendments. Statewide scopes attach to every city in the
+   state automatically; no `jurisdiction_districts` rows needed.
+4. **Add resources and link them.** Enter each debate/forum/interview once in
+   `resources`, then attach it in `resource_links` to the race and/or to each
+   candidate it covers. A forum covering a whole race should link to the race —
+   the UI then shows it on the race page and on every candidate page in it,
+   labelled "Also covers: …".
+5. **Regenerate `assets/fallback-data.json`** so the offline snapshot matches.
+
+Ballot order comes from `districts.level`; `races.sort_order` controls order
+within a scope.
+
+### Nonpartisan guardrails when entering data
+
+- Aim for the **same categories of information for every candidate** in a race.
+  If one candidate has a campaign site and interview linked, look for the
+  equivalent for their opponents before publishing.
+- For measures, link **both supporting and opposing** material where each exists.
+- Prefer official and independent sources (election authorities, League of Women
+  Voters, established local news) over partisan material.

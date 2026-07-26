@@ -35,13 +35,13 @@
 </header>
 
 <main>
-  <div class="intro">
+  <div class="intro" id="intro">
     <h1>See what's on your ballot — and who represents you now.</h1>
     <p>Choose your city to see upcoming local elections with candidate information,
     or your current elected officials with direct contact links when no election is scheduled.</p>
   </div>
 
-  <div class="card">
+  <div class="card" id="pickerCard">
     <div class="picker-row">
       <div class="field">
         <label for="state">State</label>
@@ -59,11 +59,6 @@
 
   <div class="card results" id="results" aria-live="polite"></div>
 </main>
-
-<dialog class="person-dialog" id="personDialog" aria-labelledby="dialogBody">
-  <button type="button" class="dialog-close" id="dialogClose" aria-label="Close">×</button>
-  <div class="dialog-body" id="dialogBody"></div>
-</dialog>
 
 <footer class="site-footer">
   <div class="inner">
