@@ -189,15 +189,22 @@ async function loadData() {
     }
   }
 
-  buildPlaces(raw);
-  hideStatus();
-  if (usedFallback) {
-    const el = $("status");
-    el.hidden = false;
-    el.innerHTML = `<span>Live updates are temporarily unavailable — showing our most recently saved copy of this information.</span>`;
+  try {
+    buildPlaces(raw);
+    hideStatus();
+    if (usedFallback) {
+      const el = $("status");
+      el.hidden = false;
+      el.innerHTML = `<span>Live updates are temporarily unavailable — showing our most recently saved copy of this information.</span>`;
+    }
+    populateStates();
+    route();
+  } catch (err) {
+    // Never fail silently: a stuck "Loading…" tells the visitor nothing and
+    // leaves us nothing to debug with.
+    console.error("Civic Gateway failed to render:", err);
+    showError(`Something went wrong displaying this page (${err.message}). Reloading usually fixes it.`);
   }
-  populateStates();
-  route();
 }
 
 /* ---------- Shaping the raw rows into view-models ---------- */
@@ -889,8 +896,8 @@ function renderMeasurePage(place, measure) {
 /* ---------- Chrome + painting ---------- */
 
 function setChrome({ picker, selected }) {
-  $("intro").hidden = !picker;
-  $("pickerCard").hidden = !picker;
+  if ($("intro")) $("intro").hidden = !picker;
+  if ($("pickerCard")) $("pickerCard").hidden = !picker;
   if (selected) {
     if ($("state").value !== selected.state) {
       $("state").value = selected.state;
@@ -981,8 +988,9 @@ function route() {
 
 /* ---------- Boot ---------- */
 
-$("state").addEventListener("change", onStateChange);
-$("city").addEventListener("change", onCityChange);
+const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+on("state", "change", onStateChange);
+on("city", "change", onCityChange);
 window.addEventListener("popstate", route);
 window.addEventListener("hashchange", route);
 
