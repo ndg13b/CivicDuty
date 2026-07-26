@@ -18,17 +18,34 @@ The site is static (hosted on GitHub Pages) and reads its data from a Supabase
 
 - [`index.html`](index.html) — the page shell and Supabase configuration
 - [`assets/styles.css`](assets/styles.css) — the design system
-- [`assets/app.js`](assets/app.js) — data loading and rendering
+- [`assets/app.js`](assets/app.js) — data loading, ballot assembly, routing, rendering
 - [`assets/fallback-data.json`](assets/fallback-data.json) — an offline snapshot
   served automatically if the database is unreachable, so the site degrades to
   "recently saved data" instead of an error
 
 The database itself is defined in:
 
-- [`schema.sql`](schema.sql) — table definitions and Row Level Security policies
+- [`schema.sql`](schema.sql) — the original tables and Row Level Security policies
   (public key can read everything, write nothing)
-- [`seed.sql`](seed.sql) — the current cities as insertable rows
-- [`DATABASE-PLAN.md`](DATABASE-PLAN.md) — the design rationale
+- [`seed.sql`](seed.sql) — the first three cities as insertable rows
+- [`migrations/`](migrations/) — schema changes since, applied in numeric order
+- [`DATABASE-PLAN.md`](DATABASE-PLAN.md) and [`EXPANSION-PLAN.md`](EXPANSION-PLAN.md) — design rationale
+
+## How the ballot works
+
+A ballot is **assembled, not stored**. A voter sees contests from several
+overlapping scopes at once — their city, state house and senate districts,
+congressional district, and statewide offices. The site collects every contest
+for the next election date across all of those scopes and sorts them the way a
+ballot reads (federal → state → county → judicial → city, with measures last).
+
+Because a city can span several districts for the same office, contests for the
+same office in sibling districts collapse into one "your ballot will show one of
+these" group. Coverage is presented as a **companion to** the official ballot,
+never a replacement — every ballot view links to the official lookup tools.
+
+Each candidate, contest, and ballot measure has its own shareable URL, e.g.
+`civicgateway.org/#/city/maryland-heights-mo/person/wesley-bell`.
 
 ## Adding or updating a city
 

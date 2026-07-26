@@ -114,3 +114,37 @@ Per-city process (same as the original three):
 3. **Post-primary (mid-August):** add November races + candidates per district.
 4. **November general:** the ballot view becomes the main event for every
    covered city.
+
+## 5. Entering the November 2026 ballot (after the Aug 4 primary)
+
+The ballot renderer is live but shows "contests aren't listed yet" until races
+exist, because nominees aren't certified until after the August 4 primary.
+Once the certified list is published by the
+[Secretary of State](https://www.sos.mo.gov/elections/candidates):
+
+1. **Add a `races` row** per contest, attached to that scope's November 3
+   `elections` row. Set `kind` (`office` or `measure`), `vote_for`, and for
+   measures the verbatim `official_text`.
+2. **Add `candidates` rows**, setting `incumbent` where it applies.
+3. **Add a statewide scope** if not already present — a `districts` row with
+   `level = 'statewide'` (e.g. "State of Missouri") holding the State Auditor
+   race and statewide amendments. Statewide scopes attach to every city in the
+   state automatically; no `jurisdiction_districts` rows needed.
+4. **Add resources and link them.** Enter each debate/forum/interview once in
+   `resources`, then attach it in `resource_links` to the race and/or to each
+   candidate it covers. A forum covering a whole race should link to the race —
+   the UI then shows it on the race page and on every candidate page in it,
+   labelled "Also covers: …".
+5. **Regenerate `assets/fallback-data.json`** so the offline snapshot matches.
+
+Ballot order comes from `districts.level`; `races.sort_order` controls order
+within a scope.
+
+### Nonpartisan guardrails when entering data
+
+- Aim for the **same categories of information for every candidate** in a race.
+  If one candidate has a campaign site and interview linked, look for the
+  equivalent for their opponents before publishing.
+- For measures, link **both supporting and opposing** material where each exists.
+- Prefer official and independent sources (election authorities, League of Women
+  Voters, established local news) over partisan material.
