@@ -1,5 +1,5 @@
 {
-  "_comment": "Offline snapshot of the database, served if Supabase is unreachable. Same shape as the app's Supabase query result. Regenerate when the database changes. Last synced: July 2026 (matches seed.sql + migrations 002-003).",
+  "_comment": "Offline snapshot of the database, served if Supabase is unreachable. Same shape as the app's Supabase query result. Regenerate when the database changes. Last synced: August 2026 (matches seed.sql + migrations 002-005).",
   "jurisdictions": [
     {
       "name": "Maryland Heights",
@@ -120,7 +120,43 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 1",
+                    "description": "Represents Missouri's 1st Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Wesley Bell",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 1st Congressional District since January 2025. Former St. Louis County Prosecuting Attorney and Ferguson City Council member.",
+                        "website": "https://bell.house.gov/"
+                      },
+                      {
+                        "name": "Paul Berry III",
+                        "party": "Republican",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      },
+                      {
+                        "name": "Tom Schmitz",
+                        "party": "Libertarian",
+                        "incumbent": false,
+                        "sort_order": 2,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -148,7 +184,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -176,7 +214,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -204,7 +244,29 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "State Representative — District 70",
+                    "description": "No other candidate filed for this seat. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Stephanie Boykin",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "State Representative for District 70 since January 2025. Retired U.S. Air Force lieutenant colonel and certified teacher.",
+                        "website": "https://house.mo.gov/MemberDetails.aspx?district=070"
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -232,7 +294,27 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "State Representative — District 71",
+                    "description": "Open seat — the current representative is term-limited. No other candidate filed. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Nicole Greer",
+                        "party": "Democratic",
+                        "incumbent": false,
+                        "sort_order": 0,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -260,7 +342,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -383,7 +467,43 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 1",
+                    "description": "Represents Missouri's 1st Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Wesley Bell",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 1st Congressional District since January 2025. Former St. Louis County Prosecuting Attorney and Ferguson City Council member.",
+                        "website": "https://bell.house.gov/"
+                      },
+                      {
+                        "name": "Paul Berry III",
+                        "party": "Republican",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      },
+                      {
+                        "name": "Tom Schmitz",
+                        "party": "Libertarian",
+                        "incumbent": false,
+                        "sort_order": 2,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -411,7 +531,36 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 2",
+                    "description": "Represents Missouri's 2nd Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Ann Wagner",
+                        "party": "Republican",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 2nd Congressional District since 2013.",
+                        "website": "https://wagner.house.gov/"
+                      },
+                      {
+                        "name": "Fred Wellman",
+                        "party": "Democratic",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -439,7 +588,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -467,7 +618,27 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "State Representative — District 71",
+                    "description": "Open seat — the current representative is term-limited. No other candidate filed. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Nicole Greer",
+                        "party": "Democratic",
+                        "incumbent": false,
+                        "sort_order": 0,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -581,7 +752,43 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 1",
+                    "description": "Represents Missouri's 1st Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Wesley Bell",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 1st Congressional District since January 2025. Former St. Louis County Prosecuting Attorney and Ferguson City Council member.",
+                        "website": "https://bell.house.gov/"
+                      },
+                      {
+                        "name": "Paul Berry III",
+                        "party": "Republican",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      },
+                      {
+                        "name": "Tom Schmitz",
+                        "party": "Libertarian",
+                        "incumbent": false,
+                        "sort_order": 2,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -609,7 +816,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -637,7 +846,29 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "State Representative — District 70",
+                    "description": "No other candidate filed for this seat. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Stephanie Boykin",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "State Representative for District 70 since January 2025. Retired U.S. Air Force lieutenant colonel and certified teacher.",
+                        "website": "https://house.mo.gov/MemberDetails.aspx?district=070"
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -749,7 +980,36 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 2",
+                    "description": "Represents Missouri's 2nd Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Ann Wagner",
+                        "party": "Republican",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 2nd Congressional District since 2013.",
+                        "website": "https://wagner.house.gov/"
+                      },
+                      {
+                        "name": "Fred Wellman",
+                        "party": "Democratic",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -777,7 +1037,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -895,7 +1157,43 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "U.S. Representative — District 1",
+                    "description": "Represents Missouri's 1st Congressional District in the U.S. House. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Wesley Bell",
+                        "party": "Democratic",
+                        "incumbent": true,
+                        "sort_order": 0,
+                        "resource_links": [],
+                        "bio": "U.S. Representative for Missouri's 1st Congressional District since January 2025. Former St. Louis County Prosecuting Attorney and Ferguson City Council member.",
+                        "website": "https://bell.house.gov/"
+                      },
+                      {
+                        "name": "Paul Berry III",
+                        "party": "Republican",
+                        "incumbent": false,
+                        "sort_order": 1,
+                        "resource_links": []
+                      },
+                      {
+                        "name": "Tom Schmitz",
+                        "party": "Libertarian",
+                        "incumbent": false,
+                        "sort_order": 2,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -923,7 +1221,9 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": []
               }
             ]
           }
@@ -951,10 +1251,81 @@
             "elections": [
               {
                 "name": "General Election",
-                "election_date": "2026-11-03"
+                "election_date": "2026-11-03",
+                "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+                "races": [
+                  {
+                    "kind": "office",
+                    "vote_for": 1,
+                    "sort_order": 0,
+                    "resource_links": [],
+                    "title": "State Representative — District 71",
+                    "description": "Open seat — the current representative is term-limited. No other candidate filed. Two-year term.",
+                    "candidates": [
+                      {
+                        "name": "Nicole Greer",
+                        "party": "Democratic",
+                        "incumbent": false,
+                        "sort_order": 0,
+                        "resource_links": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
+        }
+      ]
+    }
+  ],
+  "statewide": [
+    {
+      "level": "statewide",
+      "name": "State of Missouri",
+      "short_name": "Statewide",
+      "state": "MO",
+      "info_url": "https://www.sos.mo.gov/elections",
+      "sort_order": 5,
+      "officials": [],
+      "elections": [
+        {
+          "name": "General Election",
+          "election_date": "2026-11-03",
+          "note": "Candidates reflect unofficial results from the August 4, 2026 primary. Results are certified by the state in the weeks afterward.",
+          "races": [
+            {
+              "kind": "office",
+              "vote_for": 1,
+              "sort_order": 0,
+              "resource_links": [],
+              "title": "State Auditor",
+              "description": "The state auditor reviews the finances and operations of Missouri state agencies and local governments. Four-year term.",
+              "candidates": [
+                {
+                  "name": "Scott Fitzpatrick",
+                  "party": "Republican",
+                  "incumbent": true,
+                  "sort_order": 0,
+                  "resource_links": []
+                },
+                {
+                  "name": "Quentin Wilson",
+                  "party": "Democratic",
+                  "incumbent": false,
+                  "sort_order": 1,
+                  "resource_links": []
+                },
+                {
+                  "name": "Dustin Coffell",
+                  "party": "Libertarian",
+                  "incumbent": false,
+                  "sort_order": 2,
+                  "resource_links": []
+                }
+              ]
+            }
+          ]
         }
       ]
     }

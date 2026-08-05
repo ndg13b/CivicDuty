@@ -320,17 +320,22 @@ function buildBallot(place) {
   if (!dates.length) return null;
   const date = dates.sort()[0];
 
-  const name = (() => {
-    for (const s of scopes) {
-      for (const e of s.elections || []) if (e.election_date === date) return e.name;
+  let name = "Election";
+  let note = null;
+  for (const s of scopes) {
+    for (const e of s.elections || []) {
+      if (e.election_date !== date) continue;
+      name = e.name || name;
+      if (e.note) note = e.note;
     }
-    return "Election";
-  })();
+  }
 
   const contests = [];
+  const pending = [];
   for (const s of scopes) {
     for (const e of (s.elections || [])) {
       if (e.election_date !== date) continue;
+      if (!(e.races || []).length) pending.push(s.label);
       for (const r of (e.races || []).slice().sort(bySort)) {
         contests.push({
           id: `${slugify(r.title)}-${slugify(s.shortName || s.label)}`,
@@ -371,6 +376,8 @@ function buildBallot(place) {
   return {
     date,
     name,
+    note,
+    pending: [...new Set(pending)],
     sections,
     hasContests: contests.length > 0,
     otherDates: [...new Set(dates)].filter((d) => d !== date).sort(),
@@ -648,6 +655,7 @@ function renderBallot(place) {
       <strong>This is what we expect on a ${esc(place.name)} ballot.</strong>
       Some contests depend on your exact street address — ${LOOKUP_LINKS}.
       Always confirm with your local election authority before voting.
+      ${b.note ? `<br><span class="note-status">${esc(b.note)}</span>` : ""}
     </div>`;
 
   if (!b.hasContests) {
@@ -661,6 +669,13 @@ function renderBallot(place) {
     for (const group of section.groups) {
       html += group.single ? renderContest(place, group.single) : renderVariantGroup(place, group);
     }
+  }
+
+  if (b.pending.length) {
+    html += `<div class="notice"><strong>More contests are expected on this ballot.</strong>
+      We haven't listed the ${esc(b.pending.join(", "))} ${b.pending.length === 1 ? "contest" : "contests"}
+      yet — we add each one only after confirming it against official sources.
+      Your official sample ballot will show everything you can vote on.</div>`;
   }
   return html;
 }
@@ -697,7 +712,7 @@ function renderVariantGroup(place, group) {
     <div class="contest">
       <div class="contest-head"><h4>${esc(group.office)}</h4></div>
       <div class="contest-sub">Vote for one</div>
-      <div class="varies"><strong>${esc(place.name)} spans ${group.variants.length} districts for this office.</strong>
+      <div class="varies"><strong>${esc(place.name)} spans more than one district for this office.</strong>
         Your ballot will show only one of them — ${LOOKUP_LINKS}.</div>`;
   for (const v of group.variants) {
     html += `
