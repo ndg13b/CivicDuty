@@ -594,7 +594,7 @@ function resourceSection(label, resources, { contest = null, excludeName = null 
     ${resources.map((r) => resourceCard(r, alsoCovers)).join("")}</div>`;
 }
 
-function personCard(person, href, { featured = false, note = null } = {}) {
+function personCard(person, href, { featured = false, note = null, flag = null } = {}) {
   return `
     <a class="person-card${featured ? " featured" : ""}" href="${esc(href)}">
       <span class="avatar" aria-hidden="true">${esc(initials(person.name))}</span>
@@ -602,6 +602,7 @@ function personCard(person, href, { featured = false, note = null } = {}) {
         <span class="person-name">${esc(person.name)}${
           person.incumbent ? '<span class="chip-inc">Incumbent</span>' : ""}</span>
         <span class="person-office">${esc(note || person.office || person.party || "")}</span>
+        ${flag ? `<span class="on-ballot-flag">${esc(flag)}</span>` : ""}
       </span>
       <span class="person-more" aria-hidden="true">Details ›</span>
     </a>`;
@@ -620,8 +621,7 @@ function renderCity(place) {
     ${cityLinksRow(place)}`;
 
   html += renderBallot(place);
-  html += renderOfficialsSection(place);
-  html += renderDistrictOfficials(place);
+  html += renderWhoRepresentsYou(place);
 
   paint(html);
 }
@@ -677,6 +677,7 @@ function renderBallot(place) {
       yet — we add each one only after confirming it against official sources.
       Your official sample ballot will show everything you can vote on.</div>`;
   }
+  html += `<div class="ballot-end">End of ballot</div>`;
   return html;
 }
 
@@ -743,16 +744,45 @@ function personHref(place, person) {
   return `#/city/${place.key}/person/${person.slug || slugify(person.name)}`;
 }
 
+function renderWhoRepresentsYou(place) {
+  const officials = renderOfficialsSection(place);
+  const districts = renderDistrictOfficials(place);
+  if (!officials && !districts) return "";
+
+  const lead = place.ballot
+    ? `The people below currently hold office. They are <strong>not</strong> ballot
+       choices — anyone up for election on ${esc(formatShortDate(place.ballot.date))}
+       appears in the ballot above and is marked here.`
+    : `The people below currently hold office in and around ${esc(place.name)}.`;
+
+  return `
+    <div class="part-break">
+      <span class="part-eyebrow">Not ballot content</span>
+      <h3>Who represents you now</h3>
+      <p>${lead}</p>
+    </div>
+    ${officials}${districts}`;
+}
+
 function renderOfficialsSection(place) {
   if (!place.officials.length) return "";
   const featured = place.officials.filter((o) => String(o.office || "").toLowerCase().startsWith("mayor"));
   const rest = place.officials.filter((o) => !featured.includes(o));
+  const card = (o, opts = {}) =>
+    personCard(o, personHref(place, o), { ...opts, flag: ballotFlag(place, o) });
   return `
     <div class="section-title">Your city officials</div>
     <div class="people-grid">
-      ${featured.map((o) => personCard(o, personHref(place, o), { featured: true })).join("")}
-      ${rest.map((o) => personCard(o, personHref(place, o))).join("")}
+      ${featured.map((o) => card(o, { featured: true })).join("")}
+      ${rest.map((o) => card(o)).join("")}
     </div>`;
+}
+
+// An officeholder who is also a candidate this cycle shows up in both parts of
+// the page; say so rather than letting it read as a duplicate.
+function ballotFlag(place, person) {
+  const entry = place.people.get(person.slug);
+  return entry && entry.role === "candidate" ? "On this ballot — see above" : null;
 }
 
 function renderDistrictOfficials(place) {
@@ -771,6 +801,7 @@ function renderDistrictOfficials(place) {
         if (d.partial) daggerShown = true;
         cards += personCard(o, personHref(place, o), {
           note: (o.office || d.name) + (d.partial ? " †" : ""),
+          flag: ballotFlag(place, o),
         });
       }
     }
