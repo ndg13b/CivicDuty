@@ -594,17 +594,17 @@ function resourceSection(label, resources, { contest = null, excludeName = null 
     ${resources.map((r) => resourceCard(r, alsoCovers)).join("")}</div>`;
 }
 
-function personCard(person, href, { featured = false, note = null, flag = null } = {}) {
+function personCard(person, href, { featured = false, note = null, flag = null, compact = false } = {}) {
   return `
-    <a class="person-card${featured ? " featured" : ""}" href="${esc(href)}">
-      <span class="avatar" aria-hidden="true">${esc(initials(person.name))}</span>
+    <a class="person-card${featured ? " featured" : ""}${compact ? " compact" : ""}" href="${esc(href)}">
+      ${compact ? "" : `<span class="avatar" aria-hidden="true">${esc(initials(person.name))}</span>`}
       <span class="person-info">
         <span class="person-name">${esc(person.name)}${
           person.incumbent ? '<span class="chip-inc">Incumbent</span>' : ""}</span>
         <span class="person-office">${esc(note || person.office || person.party || "")}</span>
         ${flag ? `<span class="on-ballot-flag">${esc(flag)}</span>` : ""}
       </span>
-      <span class="person-more" aria-hidden="true">Details ›</span>
+      <span class="person-more" aria-hidden="true">${compact ? "›" : "Details ›"}</span>
     </a>`;
 }
 
@@ -651,6 +651,7 @@ function renderBallot(place) {
       <h3>${esc(b.name)}</h3>
       <div class="when">${esc(formatDate(b.date))}</div>
     </div>
+    ${ballotSummary(b)}
     <div class="accuracy-note">
       <strong>This is what we expect on a ${esc(place.name)} ballot.</strong>
       Some contests depend on your exact street address — ${LOOKUP_LINKS}.
@@ -666,10 +667,12 @@ function renderBallot(place) {
   }
 
   for (const section of b.sections) {
-    html += `<div class="ballot-section"><span class="ballot-section-label">${esc(section.label)}</span></div>`;
+    html += `<div class="ballot-section" id="sec-${esc(slugify(section.label))}"><span class="ballot-section-label">${esc(section.label)}</span></div>`;
+    html += `<div class="contest-grid">`;
     for (const group of section.groups) {
       html += group.single ? renderContest(place, group.single) : renderVariantGroup(place, group);
     }
+    html += `</div>`;
   }
 
   if (b.pending.length) {
@@ -680,6 +683,31 @@ function renderBallot(place) {
   }
   html += `<div class="ballot-end">End of ballot</div></section>`;
   return html;
+}
+
+// Seeing the size of the ballot up front is less daunting than discovering it
+// by scrolling, and the jump links make a long ballot navigable.
+function ballotSummary(b) {
+  let offices = 0;
+  let measures = 0;
+  for (const section of b.sections) {
+    for (const g of section.groups) {
+      const list = g.single ? [g.single] : g.variants;
+      if (list[0] && list[0].kind === "measure") measures += 1;
+      else offices += 1;
+    }
+  }
+  if (!offices && !measures) return "";
+  const bits = [];
+  if (offices) bits.push(`${offices} contest${offices === 1 ? "" : "s"}`);
+  if (measures) bits.push(`${measures} ballot measure${measures === 1 ? "" : "s"}`);
+  const jumps = b.sections
+    .map((s) => `<a href="#sec-${esc(slugify(s.label))}">${esc(s.label)}</a>`)
+    .join("");
+  return `<div class="ballot-summary">
+      <span class="ballot-count">${esc(bits.join(" · "))}</span>
+      <span class="ballot-jumps">${jumps}</span>
+    </div>`;
 }
 
 function renderContest(place, c) {
@@ -703,15 +731,15 @@ function renderContest(place, c) {
       ${c.partial ? `<div class="varies"><strong>Depends on your address.</strong>
         This district covers only part of ${esc(place.name)}.</div>` : ""}
       ${c.candidates.length
-        ? `<div class="people-grid">${c.candidates.map((cand) =>
-            personCard(cand, personHref(place, cand), { note: cand.party })).join("")}</div>`
+        ? `<div class="people-grid tight">${c.candidates.map((cand) =>
+            personCard(cand, personHref(place, cand), { note: cand.party, compact: true })).join("")}</div>`
         : `<p class="nothing">Candidates for this contest aren't certified yet.</p>`}
     </div>`;
 }
 
 function renderVariantGroup(place, group) {
   let html = `
-    <div class="contest">
+    <div class="contest wide">
       <div class="contest-head"><h4>${esc(group.office)}</h4></div>
       <div class="contest-sub">Vote for one</div>
       <div class="varies"><strong>${esc(place.name)} spans more than one district for this office.</strong>
@@ -720,9 +748,9 @@ function renderVariantGroup(place, group) {
     html += `
       <div class="district-option">
         <div class="doh">If you're in ${esc(v.scopeShort || v.scopeLabel)}</div>
-        <div class="people-grid">
+        <div class="people-grid tight">
           ${v.candidates.length
-            ? v.candidates.map((cand) => personCard(cand, personHref(place, cand), { note: cand.party })).join("")
+            ? v.candidates.map((cand) => personCard(cand, personHref(place, cand), { note: cand.party, compact: true })).join("")
             : `<p class="nothing">Candidates not certified yet.</p>`}
         </div>
       </div>`;

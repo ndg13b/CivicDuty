@@ -250,6 +250,21 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
 }
 .person-card.featured .avatar { width: 56px; height: 56px; font-size: 1.15rem; background: var(--gold); }
 
+.people-grid.tight { grid-template-columns: 1fr; gap: 7px; }
+
+.person-card.compact {
+  padding: 8px 12px;
+  border-width: 1px;
+  border-radius: 7px;
+  gap: 10px;
+  align-items: baseline;
+}
+.person-card.compact .person-name { display: inline; font-weight: 600; }
+.person-card.compact .person-office { display: inline; margin-left: 7px; font-size: .84rem; }
+.person-card.compact .person-more { font-size: 1rem; line-height: 1; align-self: center; }
+.person-card.compact .chip-inc { font-size: .58rem; padding: 1px 5px; margin-left: 5px; }
+.person-card.compact .person-info { line-height: 1.35; }
+
 .person-info { min-width: 0; flex: 1; }
 .person-name { font-weight: 650; color: var(--navy); display: block; }
 .person-office { color: var(--muted); font-size: .88rem; margin-top: 2px; display: block; }
@@ -316,16 +331,43 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
 .accuracy-note a { color: var(--blue); font-weight: 600; }
 .note-status { display: inline-block; margin-top: 8px; color: var(--muted); font-size: .86rem; }
 
-.ballot-section { margin: 30px 0 6px; }
+/* Scope of the ballot, stated before the scrolling starts. */
+.ballot-summary {
+  display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap;
+  background: #fff; border: 1px solid #c3d0e4; border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 14px;
+}
+.ballot-count {
+  font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--navy);
+}
+.ballot-jumps { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.ballot-jumps a {
+  font-size: .78rem; font-weight: 600; color: var(--blue); text-decoration: none;
+  border: 1px solid #cfdcef; border-radius: 999px; padding: 3px 11px; background: #f4f7fc;
+}
+.ballot-jumps a:hover, .ballot-jumps a:focus-visible { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* Two columns on wide screens. A grid fills left-to-right, so ballot order
+   still reads naturally — unlike newspaper columns, which flow down first. */
+.contest-grid { display: grid; gap: 14px; align-items: start; }
+@media (min-width: 900px) {
+  .contest-grid { grid-template-columns: 1fr 1fr; }
+  /* Address-varies groups carry more explanation; give them the full width. */
+  .contest-grid > .contest.wide { grid-column: 1 / -1; }
+}
+.contest-grid > .contest, .contest-grid > .measure { margin: 0; }
+
+.ballot-section { margin: 26px 0 10px; }
 .ballot-section-label { display: block; font-size: .72rem; font-weight: 800; letter-spacing: .14em;
   text-transform: uppercase; color: var(--navy); background: #e8edf4; padding: 7px 14px; border-radius: 5px; }
 
-.contest { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 14px 0; background: #fff; }
+.contest { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 14px 0; background: #fff; }
 .contest-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
-.contest-head h4 { font-size: 1.1rem; color: var(--navy); }
+.contest-head h4 { font-size: 1.02rem; color: var(--navy); }
 .contest-actions { margin-left: auto; }
-.contest-sub { font-size: .8rem; color: var(--muted); font-weight: 600; letter-spacing: .03em;
-  text-transform: uppercase; margin-bottom: 14px; }
+.contest-sub { font-size: .74rem; color: var(--muted); font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; margin-bottom: 10px; }
 
 .chip-btn { display: inline-block; background: #fff; border: 1.5px solid var(--blue); color: var(--blue);
   font-family: inherit; font-size: .78rem; font-weight: 700; padding: 5px 13px; border-radius: 999px;
@@ -345,7 +387,7 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
   color: var(--navy); border-bottom: 1px solid var(--line); }
 .district-option .people-grid { padding: 12px 14px; }
 
-.measure { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 14px 0; background: #fff; }
+.measure { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 14px 0; background: #fff; }
 .measure h4 { font-size: 1.08rem; color: var(--navy); margin-bottom: 4px; }
 .measure .yn { display: flex; gap: 10px; margin: 12px 0; }
 .measure .yn span { border: 1.5px solid var(--line); border-radius: 6px; padding: 5px 20px;
@@ -459,8 +501,12 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
 /* ---------- Responsive ---------- */
 
 @media (max-width: 640px) {
-  .ballot-panel { padding: 14px 12px 16px; }
-  .contest, .measure { padding: 15px 14px; }
+  /* Keep compact rows at or above the 44px touch-target guideline — this
+     audience skews older and often votes on a phone. */
+  .person-card.compact { min-height: 44px; padding: 10px 12px; }
+  .ballot-panel { padding: 14px 10px 16px; }
+  .contest, .measure { padding: 13px 12px; }
+  .ballot-jumps { margin-left: 0; }
   .picker-row { grid-template-columns: 1fr; }
   .site-header .inner { padding: 16px 18px; }
   main { padding: 24px 18px 40px; }
