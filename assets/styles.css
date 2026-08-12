@@ -290,6 +290,21 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
 
 /* ---------- Ballot ---------- */
 
+/* Everything a voter will actually vote on lives inside this panel. The tint
+   plus the border make the boundary visible at a glance, before any reading. */
+.ballot-panel {
+  background: #eaeff7;
+  border: 2px solid #c3d0e4;
+  border-radius: 12px;
+  padding: 18px 20px 20px;
+  margin: 18px 0 0;
+}
+.ballot-panel .ballot-head { margin-top: 0; }
+.ballot-panel .ballot-section-label { background: #dae3f0; }
+.ballot-panel .ballot-end { color: #5c6f8a; }
+.ballot-panel .ballot-end::before, .ballot-panel .ballot-end::after { background: #c3d0e4; }
+
+
 .ballot-head { background: var(--navy); color: #fff; border-radius: var(--radius); padding: 20px 24px; margin: 16px 0 18px; }
 .ballot-head .kicker { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #a9b8d0; }
 .ballot-head h3 { font-family: Georgia, serif; font-size: 1.45rem; margin: 4px 0 2px; }
@@ -444,6 +459,8 @@ select:disabled { background-color: #f0f2f5; color: #9aa7b4; cursor: not-allowed
 /* ---------- Responsive ---------- */
 
 @media (max-width: 640px) {
+  .ballot-panel { padding: 14px 12px 16px; }
+  .contest, .measure { padding: 15px 14px; }
   .picker-row { grid-template-columns: 1fr; }
   .site-header .inner { padding: 16px 18px; }
   main { padding: 24px 18px 40px; }

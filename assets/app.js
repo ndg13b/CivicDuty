@@ -645,7 +645,7 @@ function renderBallot(place) {
       ${place.note ? ` ${esc(place.note)}` : ""}</div>`;
   }
 
-  let html = `
+  let html = `<section class="ballot-panel" aria-label="What is on your ballot">
     <div class="ballot-head">
       <div class="kicker">What's on your ballot</div>
       <h3>${esc(b.name)}</h3>
@@ -661,7 +661,8 @@ function renderBallot(place) {
   if (!b.hasContests) {
     return html + `<div class="notice"><strong>Contests for this election aren't listed yet.</strong>
       We add each contest and its candidates once they are officially certified.
-      In the meantime, your current representatives are listed below.</div>`;
+      In the meantime, your current representatives are listed below.</div>
+      </section>`;
   }
 
   for (const section of b.sections) {
@@ -677,7 +678,7 @@ function renderBallot(place) {
       yet — we add each one only after confirming it against official sources.
       Your official sample ballot will show everything you can vote on.</div>`;
   }
-  html += `<div class="ballot-end">End of ballot</div>`;
+  html += `<div class="ballot-end">End of ballot</div></section>`;
   return html;
 }
 
