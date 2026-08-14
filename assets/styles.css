@@ -131,10 +131,10 @@ main {
   width: 100%;
   max-width: 1080px;
   margin: 0 auto;
-  padding: var(--s7) var(--s5) var(--s8);
+  padding: var(--s6) var(--s5) var(--s8);
 }
 
-.intro { max-width: var(--measure); margin-bottom: var(--s6); }
+.intro { max-width: var(--measure); margin-bottom: var(--s5); }
 .intro h1 {
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 1.2rem + 2vw, 2.4rem);
@@ -146,9 +146,11 @@ main {
   text-wrap: balance;
 }
 .intro p {
-  color: var(--ink-2);
-  font-size: 1.05rem;
-  max-width: 60ch;
+  color: var(--ink-3);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-style: italic;
+  letter-spacing: -0.005em;
 }
 
 /* The picker is part of the page, not a floating box */
@@ -156,9 +158,8 @@ main {
   margin-bottom: var(--s6);
 }
 #pickerCard {
-  border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
-  padding: var(--s5) 0;
+  padding-bottom: var(--s5);
 }
 
 /* ---------- Picker ---------- */
