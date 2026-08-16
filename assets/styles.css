@@ -525,13 +525,37 @@ select:disabled { background-color: #f1f2f5; color: var(--ink-4); cursor: not-al
 }
 .district-note { color: var(--ink-3); font-size: .86rem; margin: var(--s3) 0 0; line-height: 1.6; }
 
-/* ---------- Detail pages ---------- */
+/* ---------- Detail pages ----------
+   Candidates, contests and measures are reference documents, so they get a
+   sheet of their own — white rather than the ballot's ivory, and a centred
+   reading column instead of content stranded down one side of a wide page. */
+
+.detail-sheet {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(22, 32, 47, .04), 0 8px 24px -14px rgba(22, 32, 47, .14);
+  padding: var(--s7) var(--s7) var(--s6);
+  max-width: 780px;
+  margin: 0 auto;
+}
+.detail-sheet > *:last-child { margin-bottom: 0; }
+.detail-sheet .page-sec { max-width: none; }
+.detail-sheet .neutrality { max-width: none; }
+.measure-sheet .official-text {
+  font-size: 1.08rem;
+  border-left-width: 3px;
+  border-left-color: var(--gold);
+  padding: var(--s3) 0 var(--s3) var(--s5);
+}
 
 .backlink {
-  display: inline-block;
+  display: block;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto var(--s4);
   color: var(--ink-2); text-decoration: none;
   font-size: .88rem;
-  margin-bottom: var(--s5);
 }
 .backlink:hover { color: var(--accent); }
 
@@ -567,7 +591,10 @@ select:disabled { background-color: #f1f2f5; color: var(--ink-4); cursor: not-al
   margin-bottom: var(--s4);
 }
 .page-sec p { color: var(--ink-2); line-height: 1.7; margin-bottom: var(--s3); }
+.page-sec p:last-child { margin-bottom: 0; }
 .links { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.page-sec .links .link { background: var(--page); border-color: var(--rule); }
+.page-sec .links .link:hover { background: var(--surface); border-color: var(--accent); }
 
 .res {
   display: flex; gap: var(--s3); align-items: flex-start;
@@ -636,6 +663,7 @@ select:disabled { background-color: #f1f2f5; color: var(--ink-4); cursor: not-al
   .ballot-panel { padding: var(--s4) var(--s4) var(--s3); margin-left: calc(var(--s4) * -1); margin-right: calc(var(--s4) * -1); border-left: 0; border-right: 0; border-radius: 0; }
   .ballot-jumps { margin-left: 0; }
   .person-card.compact { min-height: 44px; padding: 12px var(--s2); }
+  .detail-sheet { padding: var(--s5) var(--s4); margin-left: calc(var(--s4) * -1); margin-right: calc(var(--s4) * -1); border-left: 0; border-right: 0; border-radius: 0; }
   .person-hero { gap: var(--s4); }
   .hero-av { width: 52px; height: 52px; font-size: 1.05rem; }
 }
