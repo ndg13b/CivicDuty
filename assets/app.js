@@ -874,6 +874,7 @@ function renderPerson(place, person) {
 
   const html = `
     <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <article class="detail-sheet">
     <div class="person-hero">
       <div class="hero-av" aria-hidden="true">${esc(initials(person.name))}</div>
       <div>
@@ -904,7 +905,8 @@ function renderPerson(place, person) {
 
     <p class="neutrality">Civic Gateway does not endorse candidates. Links are provided so you can
     hear candidates in their own words and from independent coverage; inclusion is not an
-    endorsement, and we aim to list the same categories of information for every candidate in a race.</p>`;
+    endorsement, and we aim to list the same categories of information for every candidate in a race.</p>
+    </article>`;
 
   paint(html);
   document.title = `${person.name} — Civic Gateway`;
@@ -917,6 +919,7 @@ function renderContestPage(place, contest) {
 
   const html = `
     <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <article class="detail-sheet">
     <div class="page-head">
       <h1>${esc(contest.title)}</h1>
       <div class="hero-meta">${esc(contest.scopeLabel)} ·
@@ -935,7 +938,8 @@ function renderContestPage(place, contest) {
     </div>
 
     ${resourceSection("Debates & candidate forums", contest.resources.filter((r) => r.kind === "debate"))}
-    ${resourceSection("Voter information", contest.resources.filter((r) => r.kind === "info"))}`;
+    ${resourceSection("Voter information", contest.resources.filter((r) => r.kind === "info"))}
+    </article>`;
 
   paint(html);
   document.title = `${contest.title} — Civic Gateway`;
@@ -948,6 +952,7 @@ function renderMeasurePage(place, measure) {
 
   const html = `
     <a class="backlink" href="#/city/${esc(place.key)}">‹ Back to ${esc(place.name)}</a>
+    <article class="detail-sheet measure-sheet">
     <div class="page-head">
       <h1>${esc(measure.title)}</h1>
       <div class="hero-meta">${esc(measure.scopeLabel)} · Ballot measure${
@@ -962,7 +967,8 @@ function renderMeasurePage(place, measure) {
       A <strong>NO</strong> vote opposes it, leaving current law unchanged.</p></div>
     ${resourceSection("Arguments and analysis", measure.resources)}
     <p class="neutrality">Civic Gateway takes no position on ballot measures. Where we link
-    supporting and opposing material, we aim to link both.</p>`;
+    supporting and opposing material, we aim to link both.</p>
+    </article>`;
 
   paint(html);
   document.title = `${measure.title} — Civic Gateway`;
