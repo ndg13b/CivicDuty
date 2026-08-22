@@ -26,26 +26,26 @@
              "Helvetica Neue", Arial, sans-serif;
 
   /* Ink — warm near-black through to a soft grey */
-  --ink:    #1a1815;
-  --ink-2:  #4f4a43;
-  --ink-3:  #837c72;
-  --ink-4:  #a8a196;
+  --ink:    #141210;
+  --ink-2:  #403b34;
+  --ink-3:  #6b645a;
+  --ink-4:  #8f8779;
 
   /* Surfaces — warm throughout; the sheet is brighter than the page */
-  --page:    #f7f4ed;
-  --surface: #fffdf8;
-  --paper:   #fffdf8;
-  --paper-2: #f4eee0;
+  --page:    #ece5d6;
+  --surface: #fffefb;
+  --paper:   #fffefb;
+  --paper-2: #f5efe0;
 
   /* Rules */
-  --rule:        #e2dbcc;
-  --rule-strong: #cabfa9;
+  --rule:        #d6cbb4;
+  --rule-strong: #b3a68b;
 
   /* Accents. Oxblood is editorial — eyebrows, marks of note. Links get
      their own sober blue so they stay recognisable as links. */
   --accent:      #7a1420;
   --accent-soft: #f6ecec;
-  --link:        #1a4480;
+  --link:        #153a6b;
 
   --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
   --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
@@ -165,6 +165,10 @@ main {
   gap: var(--s4);
   max-width: 620px;
 }
+/* Only one state has data: the state field is hidden and the city field
+   takes the row on its own. */
+.picker-row.single { grid-template-columns: minmax(0, 420px); }
+.field[hidden] { display: none; }
 .field label {
   display: block;
   font-size: .68rem;
@@ -309,26 +313,50 @@ select:disabled { background-color: #efeade; color: var(--ink-4); cursor: not-al
   color: var(--ink-3);
 }
 
-.contest-grid { display: grid; gap: var(--s5) var(--s6); align-items: start; }
+.contest-grid { display: grid; gap: var(--s4); align-items: start; }
 @media (min-width: 900px) {
   .contest-grid { grid-template-columns: 1fr 1fr; }
   .contest-grid > .contest.wide { grid-column: 1 / -1; }
 }
 
-.contest, .measure { margin: 0; }
-.contest-head { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
-.contest-head h4, .measure h4 {
+/* Each contest is enclosed, its title on a tinted strip, so one item on the
+   ballot is unmistakably one block. */
+.contest, .measure {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+}
+.contest-head, .measure > h4 {
+  display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 10px var(--s4);
+}
+.contest-head h4, .measure > h4 {
   font-family: var(--font-display);
-  font-size: 1.14rem; font-weight: 700; letter-spacing: -0.005em;
+  font-size: 1.08rem; font-weight: 700; letter-spacing: -0.005em;
   color: var(--ink);
+  display: flex; align-items: center;
 }
 .contest-actions { margin-left: auto; }
 .contest-sub {
   font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
   color: var(--ink-3);
-  margin: 4px 0 var(--s3);
+  padding: 0 var(--s4);
+  margin: var(--s3) 0 var(--s2);
 }
-.race-description { color: var(--ink-2); font-size: .9rem; margin-bottom: var(--s3); }
+.race-description { color: var(--ink-2); font-size: .9rem; padding: 0 var(--s4); margin-bottom: var(--s3); }
+
+/* Our own numbering, for scanning and reference — deliberately quiet so it
+   is not mistaken for an official ballot item number. */
+.item-no {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--ink);
+  font-family: var(--font-ui); font-size: .7rem; font-weight: 700;
+  margin-right: 10px;
+}
 
 .chip-btn {
   display: inline-block;
@@ -341,7 +369,7 @@ select:disabled { background-color: #efeade; color: var(--ink-4); cursor: not-al
 
 /* Candidates: ruled rows with dotted leaders, as a printed ballot sets them */
 .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s3); }
-.people-grid.tight { grid-template-columns: 1fr; gap: 0; border-top: 1px solid var(--rule); }
+.people-grid.tight { grid-template-columns: 1fr; gap: 0; padding: 0 var(--s4) var(--s2); }
 
 .person-card {
   display: flex; align-items: center; gap: var(--s3);
@@ -394,14 +422,14 @@ select:disabled { background-color: #efeade; color: var(--ink-4); cursor: not-al
 
 .varies {
   background: var(--paper-2);
-  border-left: 2px solid var(--accent);
+  border-left: 3px solid var(--accent);
   padding: var(--s3) var(--s4);
   font-size: .86rem; color: var(--ink-2); line-height: 1.6;
-  margin-bottom: var(--s3);
+  margin: 0 var(--s4) var(--s3);
 }
 .varies strong { color: var(--ink); font-weight: 600; }
 
-.district-option { margin-bottom: var(--s4); }
+.district-option { margin: 0 var(--s4) var(--s4); }
 .district-option .doh {
   font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
   color: var(--ink-3); padding-bottom: var(--s1);
@@ -412,9 +440,10 @@ select:disabled { background-color: #efeade; color: var(--ink-4); cursor: not-al
   font-size: 1rem; line-height: 1.65; color: var(--ink);
   border-left: 2px solid var(--rule-strong);
   padding: var(--s2) 0 var(--s2) var(--s4);
-  margin: var(--s3) 0;
+  margin: var(--s3) var(--s4);
 }
-.measure .yn { display: flex; gap: var(--s2); margin: var(--s3) 0; }
+.measure .yn { display: flex; gap: var(--s2); margin: var(--s3) var(--s4); }
+.measure > .chip-btn { margin: 0 var(--s4) var(--s4); }
 .measure .yn span {
   font-size: .72rem; font-weight: 700; letter-spacing: .14em;
   color: var(--ink-3);
@@ -422,7 +451,7 @@ select:disabled { background-color: #efeade; color: var(--ink-4); cursor: not-al
   padding: 4px 18px; border-radius: 2px;
 }
 
-.nothing { color: var(--ink-3); font-size: .88rem; font-style: italic; padding: var(--s3) 0; }
+.nothing { color: var(--ink-3); font-size: .88rem; font-style: italic; padding: var(--s3) var(--s4); }
 
 .ballot-end {
   margin-top: var(--s6);
