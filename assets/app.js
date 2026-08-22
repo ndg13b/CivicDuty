@@ -509,7 +509,11 @@ function populateStates() {
   sel.innerHTML = "";
   sel.disabled = false;
 
-  if (states.length === 1) {
+  const single = states.length === 1;
+  if ($("stateField")) $("stateField").hidden = single;
+  if ($("pickerRow")) $("pickerRow").classList.toggle("single", single);
+
+  if (single) {
     sel.append(new Option(STATE_NAMES[states[0]] || states[0], states[0], true, true));
     populateCities(states[0]);
   } else {
@@ -666,11 +670,15 @@ function renderBallot(place) {
       </section>`;
   }
 
+  let itemNo = 0;
   for (const section of b.sections) {
     html += `<div class="ballot-section" id="sec-${esc(slugify(section.label))}"><span class="ballot-section-label">${esc(section.label)}</span></div>`;
     html += `<div class="contest-grid">`;
     for (const group of section.groups) {
-      html += group.single ? renderContest(place, group.single) : renderVariantGroup(place, group);
+      itemNo += 1;
+      html += group.single
+        ? renderContest(place, group.single, itemNo)
+        : renderVariantGroup(place, group, itemNo);
     }
     html += `</div>`;
   }
@@ -710,8 +718,14 @@ function ballotSummary(b) {
     </div>`;
 }
 
-function renderContest(place, c) {
-  if (c.kind === "measure") return renderMeasureCard(place, c);
+// The number is ours, for scanning and reference — it is not an official
+// ballot item number, so it stays visually quiet.
+function itemNumber(n) {
+  return n ? `<span class="item-no" aria-hidden="true">${n}</span>` : "";
+}
+
+function renderContest(place, c, num) {
+  if (c.kind === "measure") return renderMeasureCard(place, c, num);
 
   const href = `#/city/${place.key}/contest/${c.id}`;
   const sub = [
@@ -722,7 +736,7 @@ function renderContest(place, c) {
   return `
     <div class="contest">
       <div class="contest-head">
-        <h4>${esc(c.title)}</h4>
+        <h4>${itemNumber(num)}${esc(c.title)}</h4>
         ${c.resources.length
           ? `<div class="contest-actions"><a class="chip-btn" href="${esc(href)}">Debates &amp; info</a></div>` : ""}
       </div>
@@ -737,10 +751,10 @@ function renderContest(place, c) {
     </div>`;
 }
 
-function renderVariantGroup(place, group) {
+function renderVariantGroup(place, group, num) {
   let html = `
     <div class="contest wide">
-      <div class="contest-head"><h4>${esc(group.office)}</h4></div>
+      <div class="contest-head"><h4>${itemNumber(num)}${esc(group.office)}</h4></div>
       <div class="contest-sub">Vote for one</div>
       <div class="varies"><strong>${esc(place.name)} spans more than one district for this office.</strong>
         Your ballot will show only one of them — ${LOOKUP_LINKS}.</div>`;
@@ -758,10 +772,10 @@ function renderVariantGroup(place, group) {
   return html + `</div>`;
 }
 
-function renderMeasureCard(place, m) {
+function renderMeasureCard(place, m, num) {
   return `
     <div class="measure">
-      <h4>${esc(m.title)}</h4>
+      <h4>${itemNumber(num)}${esc(m.title)}</h4>
       <div class="contest-sub">${esc(m.scopeLabel)} · Vote yes or no</div>
       ${m.officialText ? `<div class="official-text">${esc(m.officialText)}</div>` : ""}
       <div class="yn"><span>YES</span><span>NO</span></div>
